@@ -20,8 +20,9 @@
         display: flex;
         flex-direction: column;
       }
+      /* O loader CSS só aparece se o React realmente não conseguir montar nada */
       #root:empty::before {
-        content: "Inicializando Sistema...";
+        content: "Sincronizando Módulos...";
         display: flex;
         align-items: center;
         justify-content: center;
@@ -32,12 +33,9 @@
         font-weight: 600;
         letter-spacing: 0.2em;
         text-transform: uppercase;
-        animate: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        animation: pulse 2s infinite;
       }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: .5; }
-      }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     </style>
     <script type="importmap">
 {
@@ -56,7 +54,5 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Script principal para montar o React -->
-    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
