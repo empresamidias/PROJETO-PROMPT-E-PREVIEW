@@ -1,0 +1,5 @@
+{
+  "name": "Prompt Logger",
+  "description": "A sleek, modern interface for logging prompts directly to a Supabase database with real-time status updates.",
+  "requestFramePermissions": []
+}
