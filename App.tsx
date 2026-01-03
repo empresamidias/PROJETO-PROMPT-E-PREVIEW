@@ -20,7 +20,8 @@ import {
   LayoutDashboard,
   Code2,
   FileJson,
-  Search
+  Search,
+  Globe
 } from 'lucide-react';
 
 // --- Componentes de Apoio ---
@@ -46,21 +47,32 @@ export default function App() {
   const [dbStatus, setDbStatus] = useState<Status>(Status.IDLE);
   const [history, setHistory] = useState<PromptEntry[]>([]);
   const [sessionId] = useState(() => {
-    const saved = localStorage.getItem('prompt_session_id') || crypto.randomUUID();
-    localStorage.setItem('prompt_session_id', saved);
-    return saved;
+    try {
+      const saved = localStorage.getItem('prompt_session_id');
+      if (saved) return saved;
+      // Fallback para ambientes sem crypto.randomUUID (como HTTP comum ou navegadores antigos)
+      const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      localStorage.setItem('prompt_session_id', newId);
+      return newId;
+    } catch (e) {
+      return "fallback-session-" + Date.now();
+    }
   });
 
   // State: Projects
   const [projects, setProjects] = useState<LocalProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<LocalProject | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // --- Efeitos ---
 
   const refreshProjectList = useCallback(async () => {
     setIsLoadingList(true);
+    setApiError(null);
     try {
       const remote = await projectsService.listProjects();
       const mapped = remote.map(p => ({
@@ -71,8 +83,9 @@ export default function App() {
         logs: [`Projeto detectado via API externa.`]
       }));
       setProjects(mapped);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Erro ao carregar lista:", e);
+      setApiError(e.message || "Erro desconhecido ao conectar com a API.");
     } finally {
       setIsLoadingList(false);
     }
@@ -91,9 +104,9 @@ export default function App() {
 
   async function fetchHistory() {
     try {
-      const { data } = await supabase.from('prompts').select('*').order('created_at', { ascending: false }).limit(10);
-      if (data) setHistory(data);
-    } catch (e) { console.error(e); }
+      const { data, error } = await supabase.from('prompts').select('*').order('created_at', { ascending: false }).limit(10);
+      if (!error && data) setHistory(data);
+    } catch (e) { console.error("Erro ao buscar histórico:", e); }
   }
 
   const handlePromptSubmit = async (e: React.FormEvent) => {
@@ -109,7 +122,10 @@ export default function App() {
       setDbStatus(Status.SUCCESS);
       fetchHistory();
       setTimeout(() => setDbStatus(Status.IDLE), 2000);
-    } catch (err) { setDbStatus(Status.ERROR); }
+    } catch (err) { 
+      console.error("Erro ao salvar prompt:", err);
+      setDbStatus(Status.ERROR); 
+    }
   };
 
   // --- Zip & Preview Logic ---
@@ -244,10 +260,17 @@ export default function App() {
               </div>
               
               <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-                {projects.length === 0 && !isLoadingList && (
+                {apiError && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[10px] font-medium mb-2">
+                    <AlertCircle size={14} className="mb-1" />
+                    {apiError}
+                  </div>
+                )}
+
+                {projects.length === 0 && !isLoadingList && !apiError && (
                   <div className="p-8 text-center border border-dashed border-white/10 rounded-2xl">
                      <Search size={24} className="mx-auto text-gray-700 mb-2" />
-                     <p className="text-[10px] text-gray-600">Nenhum projeto encontrado no servidor ngrok.</p>
+                     <p className="text-[10px] text-gray-600">Nenhum projeto encontrado no servidor.</p>
                   </div>
                 )}
 
@@ -390,6 +413,3 @@ export default function App() {
     </div>
   );
 }
-
-// Re-importing missing Icon for footer
-import { Globe } from 'lucide-react';
